@@ -36,6 +36,8 @@ const db = new pg.Client({
 });
 db.connect();
 
+
+
 app.get("/", (req, res) => {
   res.render("home.ejs");
 });
@@ -57,6 +59,38 @@ app.get("/logout", (req, res) => {
     res.redirect("/");
   });
 }); 
+
+app.get("/secrets", async(req, res) => {
+  if (req.isAuthenticated()) {
+
+    try {
+      const userid = req.user.id
+      const result = await db.query("SELECT secret from users where id = $1", [userid]);
+      let secret;
+      if (result.rows.length > 0) { 
+        secret = result.rows[0].secret || "No secrets added yet";   
+      } else { 
+        secret = "No secrets added yet";   
+      } 
+      res.render("secrets.ejs", { secret }); 
+    } catch (err) {
+      console.log(err);
+      res.redirect("/login");
+    } 
+  }
+});
+
+//TODO: Add a get route for the submit button
+//Think about how the logic should work with authentication.
+
+app.get("/submit", (req, res) => {
+  if (req.isAuthenticated()) {  
+    res.render("submit.ejs");
+  } else {
+    res.redirect("/login")
+   console.log("secret err ");
+  }
+});
 
 app.get(
   "/auth/google",
@@ -123,6 +157,30 @@ app.post("/register", async (req, res) => {
     console.log(err);
   }
 });
+
+//TODO: Create the post route for submit.
+//Handle the submitted data and add it to the database
+app.post("/submit", async (req, res) => { 
+  const secret = req.body.secret;
+  if (!req.isAuthenticated()) {
+    return res.redirect("/login"); 
+  }
+  try {
+    const userId = req.user.id;   
+    await db.query(
+      "UPDATE users SET secret = $1 WHERE id = $2",
+      [secret, userId]
+    ); 
+    res.redirect("/secrets");
+  } catch (err) {
+    console.log(err);
+    res.redirect("/secrets"); 
+  }
+});
+
+   
+ 
+ 
 
 passport.use(
   "local",
